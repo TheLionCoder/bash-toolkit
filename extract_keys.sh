@@ -8,7 +8,7 @@ while IFS= read -r line; do
   rel_file=$(grep -oP "data/raw/[^']+" <<<"$line")
   file_name=${rel_file##*/}
   line_num=$(grep -oP 'line \K\d+' <<<"$line")
-  error=$(grep -oP 'invalid type: \K[^,]+' <<<"$line")
+  error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
   mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
 
   # Build absolute path
