@@ -7,6 +7,9 @@ while IFS= read -r line; do
   # Extract filename and line number
   rel_file=$(grep -oP "data/raw/[^']+" <<<"$line")
   file_name=${rel_file##*/}
+  file_stem=${file_name%.*}
+  bill=${file_stem##*_}
+  nit=${file_stem%_*}
   line_num=$(grep -oP 'line \K\d+' <<<"$line")
   error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
   mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
@@ -26,5 +29,5 @@ while IFS= read -r line; do
   # Extract key using awk
   key=$(awk -F'"' '{print $2}' <<<"$json_line")
 
-  echo "File: $file_name | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
+  echo "File: $file_name | Bill: $bill | Nit: $nit | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
 done
