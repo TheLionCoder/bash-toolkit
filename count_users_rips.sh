@@ -10,7 +10,7 @@ DATA_PATH="$1"
 find "$DATA_PATH" -type f -name "*.json" |
   while read -r file; do
     jq -r --arg file_name "$file" '
-    [.usuarios[] // [] | .consecutivo] |
+    [.usuarios[]? // [] | .consecutivo?] |
       if length > 0 then max as $max | "\($file_name) | \($max)"
       else "\($file_name) | 0" end' "$file"
   done
