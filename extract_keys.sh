@@ -14,6 +14,10 @@ while IFS= read -r line; do
   error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
   mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
 
+  IFS="/" read -ra path_parts <<<"$rel_file"
+  period=${path_parts[2]}
+  model=${path_parts[3]}
+
   # Build absolute path
   file="${BASE_DIR}${rel_file}"
 
@@ -28,6 +32,5 @@ while IFS= read -r line; do
 
   # Extract key using awk
   key=$(awk -F'"' '{print $2}' <<<"$json_line")
-
-  echo "File: $file_name | Bill: $bill | Nit: $nit | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
+  echo "Period: $period | Model: $model| File: $file_name | Bill: $bill | Nit: $nit | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
 done
