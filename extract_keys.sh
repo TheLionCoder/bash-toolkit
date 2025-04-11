@@ -11,12 +11,20 @@ while IFS= read -r line; do
   bill=${file_stem##*_}
   nit=${file_stem%_*}
   line_num=$(grep -oP 'line \K\d+' <<<"$line")
-  error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
   mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
+
+  if [[ "$line" == *"invalid"* ]]; then
+    error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
+  elif [[ "$line" == *"missing"* ]]; then
+    error=$(grep -oP 'missing \K[^,]+' <<<"$line")
+  else
+    error="unknown_error"
+  fi
 
   IFS="/" read -ra path_parts <<<"$rel_file"
   period=${path_parts[2]}
-  model=${path_parts[3]}
+  tech_provider=${path_parts[3]}
+  model=${path_parts[4]}
 
   # Build absolute path
   file="${BASE_DIR}${rel_file}"
@@ -32,5 +40,5 @@ while IFS= read -r line; do
 
   # Extract key using awk
   key=$(awk -F'"' '{print $2}' <<<"$json_line")
-  echo "Period: $period | Model: $model| File: $file_name | Bill: $bill | Nit: $nit | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
+  echo "Provider: $tech_provider | Period: $period | Model: $model | File: $file_name | Bill: $bill | Nit: $nit | Line: $line_num | Key: $key | Error: $error | Mandatory: $mandatory"
 done
