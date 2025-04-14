@@ -11,19 +11,20 @@ while IFS= read -r line; do
   bill=${file_stem##*_}
   nit=${file_stem%_*}
   line_num=$(grep -oP 'line \K\d+' <<<"$line")
-  mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
 
   if [[ "$line" == *"invalid"* ]]; then
     error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
+    mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
   elif [[ "$line" == *"missing"* ]]; then
     error=$(grep -oP 'missing \K[^,]+' <<<"$line")
+    mandatory=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
   else
     error="unknown_error"
   fi
 
   IFS="/" read -ra path_parts <<<"$rel_file"
-  period=${path_parts[2]}
-  tech_provider=${path_parts[3]}
+  period=${path_parts[3]}
+  tech_provider=${path_parts[2]}
   model=${path_parts[4]}
 
   # Build absolute path
