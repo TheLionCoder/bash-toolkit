@@ -16,7 +16,7 @@ while IFS= read -r line; do
     error=$(grep -oP 'invalid \K[^,]+' <<<"$line")
     mandatory=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
   elif [[ "$line" == *"missing"* ]]; then
-    error=$(grep -oP 'missing \K[^,]+' <<<"$line")
+    error=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
     mandatory=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
   else
     error="unknown_error"
