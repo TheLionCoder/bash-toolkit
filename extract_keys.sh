@@ -48,10 +48,13 @@ while IFS= read -r line; do
 
     # Extract error details
     if [[ -z "$processing_error" ]]; then
-        if [[ "$line" == *"invalid"* ]]; then
-            error_type="invalid datatype"
-            key=$(grep -oP "key '\K[^']+" <<<"$line" || true)
-            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line" || true)
+        if [[ "$line" == *"invalid type:"* ]]; then
+            error_type="invalid type"
+            expected=$(grep -oP 'expected \K[^ ]+' <<<"$line")
+            include_json=true  # Flag to include JSON for invalid errors
+        elif [[ "$line" == *"invalid"* ]]; then
+            error_type=$(grep -oP "invalid '\K[^,]+" <<<"$line")
+            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"missing"* ]]; then
             error_type="missing field"
@@ -80,13 +83,18 @@ while IFS= read -r line; do
                         print;
                         exit
                     }' "$file")
+                    
+                    # Extract key from JSON line for invalid errors
+                    if [[ "$error_type" == "invalid"* && -n "$json_line" ]]; then
+                        key=$(awk -F'"' '{print $2}' <<<"$json_line")
+                    fi
                 fi
             fi
         fi
     fi
 
     # Build CSV output in required order:
-    # tercero, periodo, modelo, JSON, factura, nit, linea, key, error, esperado
+    # tercero, periodo, modelo, factura, nit, linea, json, error, key, esperado
     fields=(
         "$tech_provider"   # tercero
         "$period"          # periodo
@@ -94,7 +102,7 @@ while IFS= read -r line; do
         "$bill"            # factura
         "$nit"             # nit
         "$line_num"        # linea
-	"$json_line"       # json
+        "$json_line"       # json
         "$error_type"      # error
         "$key"             # key
         "$expected"        # esperado
@@ -105,7 +113,12 @@ while IFS= read -r line; do
     for field in "${fields[@]}"; do
         escaped_fields+=("$(csv_escape "$field")")
     done
-    IFS=,; echo "${escaped_fields[*]}"; unset IFS
+    # Use printf instead of echo and add error handling
+    if ! (IFS=,; printf "%s\n" "${escaped_fields[*]}"); then
+        echo "ERROR: Failed to write output at line $line_num" >&2
+        exit 1
+    fi
+    unset IFS
 
     # Reset JSON line for next iteration
     json_line=""
