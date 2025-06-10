@@ -49,8 +49,8 @@ while IFS= read -r line; do
     # Extract error details
     if [[ -z "$processing_error" ]]; then
         if [[ "$line" == *"invalid type:"* ]]; then
-            error_type="invalid type"
-            expected=$(grep -oP 'expected \K[^ ]+' <<<"$line")
+            error_type="invalid datatype"
+            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"invalid"* ]]; then
             error_type=$(grep -oP "invalid '\K[^,]+" <<<"$line")
