@@ -1,5 +1,4 @@
-
-#!/bin/
+#!/bin/bash
 # Validate BASE_DIR_ENV is set
 if [[ -z "$BASE_DIR_ENV" ]]; then
     echo "ERROR: Environment variable BASE_DIR_ENV is not set." >&2
