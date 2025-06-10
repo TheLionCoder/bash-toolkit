@@ -1,4 +1,5 @@
-#!/bin/bash
+
+#!/bin/
 # Validate BASE_DIR_ENV is set
 if [[ -z "$BASE_DIR_ENV" ]]; then
     echo "ERROR: Environment variable BASE_DIR_ENV is not set." >&2
@@ -41,7 +42,7 @@ while IFS= read -r line; do
     # Extract path components
     if [[ -n "$rel_file" ]]; then
         IFS="/" read -ra path_parts <<<"$rel_file"
-        period="${path_parts[3]:-}"
+        period="${path_parts[4]:-}"
         tech_provider="${path_parts[2]:-}"
         model="${path_parts[5]:-}"
     fi
@@ -49,14 +50,14 @@ while IFS= read -r line; do
     # Extract error details
     if [[ -z "$processing_error" ]]; then
         if [[ "$line" == *"invalid"* ]]; then
-            error_type=$(grep -oP 'invalid \K[^,]+' <<<"$line")
+            error_type="invalid datatype"
             key=$(grep -oP "key '\K[^']+" <<<"$line" || true)
             expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line" || true)
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"missing"* ]]; then
-            error_type=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
+            error_type="missing field"
             key=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
-            expected=""
+            expected=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
         else
             error_type="unknown_error"
             key=""
@@ -95,8 +96,8 @@ while IFS= read -r line; do
         "$nit"             # nit
         "$line_num"        # linea
 	"$json_line"       # json
-        "$key"             # key
         "$error_type"      # error
+        "$key"             # key
         "$expected"        # esperado
     )
     
