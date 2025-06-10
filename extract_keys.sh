@@ -20,7 +20,7 @@ while IFS= read -r line; do
     rel_file=""; file_name=""; file_stem=""; bill=""; nit=""
     line_num=""; error_type=""; key=""; expected=""
     period=""; tech_provider=""; model=""; json_line=""
-    processing_error=""
+    processing_error=""; include_json=false
 
     # Extract filename and line number
     rel_file=$(grep -oP "data/raw/[^']+" <<<"$line" || true)
@@ -41,26 +41,40 @@ while IFS= read -r line; do
     # Extract path components
     if [[ -n "$rel_file" ]]; then
         IFS="/" read -ra path_parts <<<"$rel_file"
-        period="${path_parts[4]:-}"
+        period="${path_parts[3]:-}"
         tech_provider="${path_parts[2]:-}"
         model="${path_parts[5]:-}"
     fi
 
-    # Process JSON file if possible
+    # Extract error details
     if [[ -z "$processing_error" ]]; then
+        if [[ "$line" == *"invalid"* ]]; then
+            error_type=$(grep -oP 'invalid \K[^,]+' <<<"$line")
+            key=$(grep -oP "key '\K[^']+" <<<"$line" || true)
+            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line" || true)
+            include_json=true  # Flag to include JSON for invalid errors
+        elif [[ "$line" == *"missing"* ]]; then
+            error_type=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
+            key=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
+            expected=""
+        else
+            error_type="unknown_error"
+            key=""
+            expected=""
+        fi
+    else
+        error_type="$processing_error"
+    fi
+
+    # Process JSON file only for invalid errors
+    if [[ "$include_json" == true && -n "$rel_file" && -n "$line_num" ]]; then
         file="${BASE_DIR_ENV}${rel_file}"
         
-        if [[ ! -f "$file" ]]; then
-            processing_error="FILE_NOT_FOUND"
-        else
+        if [[ -f "$file" ]]; then
             # Validate line number
-            if [[ ! "$line_num" =~ ^[0-9]+$ ]]; then
-                processing_error="INVALID_LINE_NUMBER"
-            else
+            if [[ "$line_num" =~ ^[0-9]+$ ]]; then
                 total_lines=$(awk 'END {print NR}' "$file")
-                if (( line_num > total_lines || line_num < 1 )); then
-                    processing_error="INVALID_LINE_NUMBER"
-                else
+                if (( line_num <= total_lines && line_num >= 1 )); then
                     json_line=$(awk -v num="$line_num" 'NR == num {
                         gsub(/^[ \t]+|[ \t]+$/, "");
                         print;
@@ -71,38 +85,16 @@ while IFS= read -r line; do
         fi
     fi
 
-    # Extract error details if no processing errors
-    if [[ -z "$processing_error" ]]; then
-        if [[ "$line" == *"invalid"* ]]; then
-            error_type=$(grep -oP 'invalid \K[^,]+' <<<"$line" || true)
-            key=$(grep -oP "key '\K[^']+" <<<"$line" || true)
-            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line" || true)
-        elif [[ "$line" == *"missing"* ]]; then
-            error_type="missing"
-            key=$(grep -oP "missing key '\K[^']+" <<<"$line" || true)
-            expected=""  # No expected value for missing keys
-        else
-            error_type="unknown_error"
-            key=""
-            expected=""
-        fi
-    else
-        # Use processing error as the error type
-        error_type="$processing_error"
-        key=""
-        expected=""
-    fi
-
     # Build CSV output in required order:
     # tercero, periodo, modelo, JSON, factura, nit, linea, key, error, esperado
     fields=(
         "$tech_provider"   # tercero
         "$period"          # periodo
         "$model"           # modelo
-        "$json_line"       # JSON
         "$bill"            # factura
         "$nit"             # nit
         "$line_num"        # linea
+	"$json_line"       # json
         "$key"             # key
         "$error_type"      # error
         "$expected"        # esperado
@@ -115,4 +107,7 @@ while IFS= read -r line; do
     done
     IFS=,; echo "${escaped_fields[*]}"; unset IFS
 
+    # Reset JSON line for next iteration
+    json_line=""
 done
+
