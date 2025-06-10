@@ -51,12 +51,8 @@ while IFS= read -r line; do
         if [[ "$line" == *"invalid type:"* ]]; then
             error_type="invalid datatype"
             # Extract actual type - handles patterns like "string \"0\""
-            actual_type=$(grep -oP 'invalid type: \K[^"]*' <<<"$line" | sed 's/[[:space:]]*$//')
             # Extract expected type - handles compound types like "string string"
-            expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
-            include_json=true  # Flag to include JSON for invalid errors
-        elif [[ "$line" == *"invalid"* ]]; then
-            error_type=$(grep -oP "invalid '\K[^,]+" <<<"$line")
+	    actual_type=$(grep -oP 'invalid type: \K(`[^`]*`|"[^"]*"|\S+)' <<<"$line" | sed -e 's/^[`"]//' -e 's/[`"]$//' -e 's/[[:space:]]*$//')
             expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"missing"* ]]; then
