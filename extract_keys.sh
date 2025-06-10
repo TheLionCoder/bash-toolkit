@@ -18,7 +18,7 @@ csv_escape() {
 while IFS= read -r line; do
     # Initialize variables
     rel_file=""; file_name=""; file_stem=""; bill=""; nit=""
-    line_num=""; error_type=""; key=""; expected=""
+    line_num=""; error_type=""; key=""; expected=""; actual_type=""
     period=""; tech_provider=""; model=""; json_line=""
     processing_error=""; include_json=false
 
@@ -50,11 +50,14 @@ while IFS= read -r line; do
     if [[ -z "$processing_error" ]]; then
         if [[ "$line" == *"invalid type:"* ]]; then
             error_type="invalid datatype"
-            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
+            # Extract actual type - handles patterns like "string \"0\""
+            actual_type=$(grep -oP 'invalid type: \K[^"]*' <<<"$line" | sed 's/[[:space:]]*$//')
+            # Extract expected type - handles compound types like "string string"
+            expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"invalid"* ]]; then
             error_type=$(grep -oP "invalid '\K[^,]+" <<<"$line")
-            expected=$(grep -oP 'expected \K[^ ]+(?: [^ ]+)*?(?= at line)' <<<"$line")
+            expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
             include_json=true  # Flag to include JSON for invalid errors
         elif [[ "$line" == *"missing"* ]]; then
             error_type="missing field"
@@ -94,7 +97,7 @@ while IFS= read -r line; do
     fi
 
     # Build CSV output in required order:
-    # tercero, periodo, modelo, factura, nit, linea, json, error, key, esperado
+    # tercero, periodo, modelo, factura, nit, linea, json, error, key, esperado, actual
     fields=(
         "$tech_provider"   # tercero
         "$period"          # periodo
@@ -106,6 +109,7 @@ while IFS= read -r line; do
         "$error_type"      # error
         "$key"             # key
         "$expected"        # esperado
+        "$actual_type"     # actual
     )
     
     # Escape and print CSV
@@ -120,7 +124,8 @@ while IFS= read -r line; do
     fi
     unset IFS
 
-    # Reset JSON line for next iteration
+    # Reset variables for next iteration
     json_line=""
+    actual_type=""
 done
 
