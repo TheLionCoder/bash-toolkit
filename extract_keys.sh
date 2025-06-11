@@ -1,24 +1,30 @@
 #!/bin/bash
+
+# A script to parse log errors, extract metadata, and format it as CSV.
+# This version is compatible with both GNU/Linux (WSL) and macOS environments.
+
 # Validate BASE_DIR_ENV is set
 if [[ -z "$BASE_DIR_ENV" ]]; then
   echo "ERROR: Environment variable BASE_DIR_ENV is not set." >&2
   exit 1
 fi
 
-# Ensure BASE_DIR_ENV ends with a trailing slash
+# Ensure BASE_DIR_ENV ends with a trailing slash for consistent path joining
 BASE_DIR_ENV="${BASE_DIR_ENV%/}/"
 
-# Function to escape CSV fields
-# This ensures that fields containing quotes or commas are handled correctly.
+# Function to escape CSV fields according to RFC 4180.
+# This ensures fields containing quotes or commas are handled correctly.
 csv_escape() {
   local str="$1"
-  str="${str//\"/\"\"}" # Double existing double quotes
-  printf '"%s"' "$str"  # Wrap the entire string in quotes
+  # Double up existing double quotes
+  str="${str//\"/\"\"}"
+  # Enclose the entire string in double quotes
+  printf '"%s"' "$str"
 }
 
-# Process each line from stdin
+# Process each log line from standard input
 while IFS= read -r line; do
-  # Initialize variables for each line to prevent data bleed-over
+  # Initialize variables for each line to prevent data bleed-over from previous lines
   rel_file=""
   file_name=""
   file_stem=""
@@ -36,8 +42,10 @@ while IFS= read -r line; do
   processing_error=""
   include_json=false
 
-  # Extract relative file path from the log line
-  rel_file=$(grep -oP "data/raw/[^']+" <<<"$line" || true)
+  # Extract relative file path from the log line using sed for portability (macOS/WSL)
+  # Original was: grep -oP "data/raw/[^']+"
+  rel_file=$(sed -n "s/.*'\(data\/raw\/[^']\+\)'.*/\1/p" <<<"$line")
+
   if [[ -z "$rel_file" ]]; then
     processing_error="FILE_PATH_EXTRACTION_FAILED"
   else
@@ -45,18 +53,22 @@ while IFS= read -r line; do
     file_stem="${file_name%.*}"
     bill="${file_stem##*_}"
     nit="${file_stem%_*}"
-    line_num=$(grep -oP 'line \K\d+' <<<"$line" || true)
+
+    # Extract line number using sed for portability
+    # Original was: grep -oP 'line \K\d+'
+    line_num=$(sed -n 's/.* at line \([0-9]\+\).*/\1/p' <<<"$line")
 
     if [[ -z "$line_num" ]]; then
-      processing_error="LINE_NUM_EXTRACTION_FAILED"
+      # Handle cases where the error is not associated with a specific line
+      line_num=1 # Assume line 1 for encoding or whole-file issues
     fi
   fi
 
   # Extract path components if the relative file was found
   if [[ -n "$rel_file" ]]; then
     IFS="/" read -ra path_parts <<<"$rel_file"
-    period="${path_parts[4]:-}"
     tech_provider="${path_parts[2]:-}"
+    period="${path_parts[4]:-}"
     model="${path_parts[5]:-}"
   fi
 
@@ -64,28 +76,36 @@ while IFS= read -r line; do
   if [[ -z "$processing_error" ]]; then
     if [[ "$line" == *"invalid type:"* ]]; then
       error_type="invalid datatype"
-      actual_type=$(grep -oP 'invalid type: \K(`[^`]*`|"[^"]*"|\S+)' <<<"$line" | sed -e 's/^[`"]//' -e 's/[`"]$//' -e 's/[[:space:]]*$//')
-      expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
-      # Flag that we need to fetch the JSON line content
+      # Extract details using portable tools
+      actual_type=$(echo "$line" | sed -n 's/.*invalid type: //p' | sed -e 's/[, ].*//' -e 's/[`"]//g')
+      expected=$(echo "$line" | sed -n 's/.*expected \([^,]*\).*/\1/p' | sed 's/ at .*//' | xargs)
+      # Flag that we need to fetch the JSON line content, unless it's the first line
       [[ "$line_num" -ne 1 ]] && include_json=true
+
     elif [[ "$line" == *"missing"* ]]; then
       error_type="missing field"
-      key=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
-      expected=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
-    elif [[ "$line" == *"input is out"* ]]; then
+      key=$(echo "$line" | sed -n 's/.*missing \([^,]*\).*/\1/p' | sed 's/ at .*//' | xargs)
+      expected="$key"
+
+    elif [[ "$line" == *"input is out"* || "$line" == *"invalid date"* ]]; then
       error_type="wrong date"
-      actual_type="date string format"
-      expected="date string correct format"
-      # Flag that we need to fetch the JSON line content
+      actual_type="invalid date format"
+      expected="valid date format (e.g., YYYY-MM-DD)"
+      # Flag that we need to fetch the JSON line content, unless it's the first line
       [[ "$line_num" -ne 1 ]] && include_json=true
-    elif [[ "$line_num" -eq 1 ]]; then
+
+    elif [[ "$line_num" -eq 1 && ("$line" == *"invalid character"* || "$line" == *"encoding"*) ]]; then
       error_type="encoding issues"
       actual_type="unknown"
       expected="UTF-8"
+      # Entire file is the issue, so we don't fetch a specific JSON line
+      json_line="File contains encoding errors; cannot parse."
+
     elif [[ "$line" == *"duplicate"* ]]; then
       error_type="bad structure"
-      actual_type=""
-      expected=""
+      actual_type="duplicate key"
+      expected="unique keys"
+
     else
       error_type="unknown_error"
       key=""
@@ -95,21 +115,21 @@ while IFS= read -r line; do
     error_type="$processing_error"
   fi
 
-  # Process JSON file for errors that need it (datatype, date, etc.)
+  # If flagged, read the specific line from the JSON file
   if [[ "$include_json" == true && -n "$rel_file" && -n "$line_num" && "$line_num" -ne 1 ]]; then
     full_file_path="${BASE_DIR_ENV}${rel_file}"
 
     if [[ -f "$full_file_path" ]]; then
-      # Get the specific line and clean leading/trailing whitespace
-      json_line=$(sed -n "${line_num}p" "$full_file_path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      # Get the specific line and trim leading/trailing whitespace
+      json_line=$(sed -n "${line_num}p" "$full_file_path" | xargs)
 
-      # *** FIX: ***
-      # The original script would clear json_line if it didn't contain a ':'.
-      # Now, we preserve the line content and only *try* to extract a key if possible.
-      if [[ "$json_line" == *:* ]]; then
-        # Attempt to extract the key from the JSON line
+      # Attempt to extract the key from the JSON line for better error reporting
+      # This is a best-effort extraction for simple "key":"value" lines
+      if [[ -z "$key" && "$json_line" == *:* ]]; then
         key=$(awk -F'"' '{print $2}' <<<"$json_line")
       fi
+    else
+      json_line="ERROR: Source file not found at ${full_file_path}"
     fi
   fi
 
