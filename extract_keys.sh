@@ -45,6 +45,7 @@ while IFS= read -r line; do
   # Extract relative file path from the log line using sed for portability (macOS/WSL)
   # Original was: grep -oP "data/raw/[^']+"
   rel_file=$(sed -n "s/.*'\(data\/raw\/[^']\+\)'.*/\1/p" <<<"$line")
+  echo "$rel_file"
 
   if [[ -z "$rel_file" ]]; then
     processing_error="FILE_PATH_EXTRACTION_FAILED"
@@ -89,8 +90,9 @@ while IFS= read -r line; do
 
     elif [[ "$line" == *"input is out"* || "$line" == *"invalid date"* ]]; then
       error_type="wrong date"
+      key=""
       actual_type="invalid date format"
-      expected="valid date format (e.g., YYYY-MM-DD)"
+      expected="valid date format (e.g., YYYY-MM-DD HH:MM:SS)"
       # Flag that we need to fetch the JSON line content, unless it's the first line
       [[ "$line_num" -ne 1 ]] && include_json=true
 
@@ -104,12 +106,12 @@ while IFS= read -r line; do
     elif [[ "$line" == *"duplicate"* ]]; then
       error_type="bad structure"
       actual_type="duplicate key"
-      expected="unique keys"
+      expected="unique keys or right structure"
 
     else
       error_type="unknown_error"
-      key=""
-      expected=""
+      actual_type="wrong JSON File"
+      expected="correct JSON File"
     fi
   else
     error_type="$processing_error"
