@@ -87,15 +87,17 @@ while IFS= read -r line; do
       key=$(echo "$line" | sed -n 's/.*missing \([^,]*\).*/\1/p' | sed 's/ at .*//' | xargs)
       expected="$key"
 
-    elif [[ "$line" == *"input is out"* || "$line" == *"invalid date"* ]]; then
+    elif [[ v"$line" == *"input is out"* || "$line" == *"invalid date"* || "$line" == *"input contains"* ||
+	   "$line" == *"trailing input"* ]]; then
       error_type="wrong date"
       key=""
       actual_type="invalid date format"
-      expected="valid date format (e.g., YYYY-MM-DD HH:MM:SS)"
+      expected="valid date format (e.g., YYYY-MM-DD HH:MM) or (e.g. YYYY-MM-DD for fechaNacimiento)"
       # Flag that we need to fetch the JSON line content, unless it's the first line
       [[ "$line_num" -ne 1 ]] && include_json=true
 
-    elif [[ "$line_num" -eq 1 && ("$line" == *"invalid character"* || "$line" == *"encoding"*) ]]; then
+    elif [[ "$line_num" -eq 1 && ("$line" == *"invalid character"* || "$line" == *"encoding"*) ||
+	   "$line" == *"unicode"* ]]; then
       error_type="encoding issues"
       actual_type="unknown"
       expected="UTF-8"
