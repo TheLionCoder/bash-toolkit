@@ -45,7 +45,6 @@ while IFS= read -r line; do
   # Extract relative file path from the log line using sed for portability (macOS/WSL)
   # Original was: grep -oP "data/raw/[^']+"
   rel_file=$(sed -n "s/.*'\(data\/raw\/[^']\+\)'.*/\1/p" <<<"$line")
-  echo "$rel_file"
 
   if [[ -z "$rel_file" ]]; then
     processing_error="FILE_PATH_EXTRACTION_FAILED"
@@ -126,9 +125,14 @@ while IFS= read -r line; do
       json_line=$(sed -n "${line_num}p" "$full_file_path" | xargs)
 
       # Attempt to extract the key from the JSON line for better error reporting
-      # This is a best-effort extraction for simple "key":"value" lines
+      # This handles both quoted "key": and unquoted key: patterns
       if [[ -z "$key" && "$json_line" == *:* ]]; then
+        # First try quoted keys pattern
         key=$(awk -F'"' '{print $2}' <<<"$json_line")
+        # If that fails, try unquoted keys pattern
+        if [[ -z "$key" ]]; then
+          key=$(awk -F':' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}' <<<"$json_line")
+        fi
       fi
     else
       json_line="ERROR: Source file not found at ${full_file_path}"

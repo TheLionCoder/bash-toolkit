@@ -3,7 +3,7 @@ make_dataset:
 	# Clear any potential lock on output file first
 	touch json_errors_temp.csv
 	cat /mnt/c/Users/EverOrlandoReyesRuiz/Developer/rips-processor/assets/logs/errors.log | \
-	grep $(LOG_DATE_VAR) | \
+	grep "$(LOG_DATE_VAR)" | \
 	sed 's/\\/\//g' | \
 	tr -d '\000' | \
 	bash extract_keys.sh > json_errors_temp.csv && mv json_errors_temp.csv json_errors.csv
