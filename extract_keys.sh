@@ -50,15 +50,22 @@ while IFS= read -r line; do
     if [[ -z "$processing_error" ]]; then
         if [[ "$line" == *"invalid type:"* ]]; then
             error_type="invalid datatype"
-            # Extract actual type - handles patterns like "string \"0\""
-            # Extract expected type - handles compound types like "string string"
-	    actual_type=$(grep -oP 'invalid type: \K(`[^`]*`|"[^"]*"|\S+)' <<<"$line" | sed -e 's/^[`"]//' -e 's/[`"]$//' -e 's/[[:space:]]*$//')
+            actual_type=$(grep -oP 'invalid type: \K(`[^`]*`|"[^"]*"|\S+)' <<<"$line" | sed -e 's/^[`"]//' -e 's/[`"]$//' -e 's/[[:space:]]*$//')
             expected=$(grep -oP 'expected \K[^,]+' <<<"$line" | sed 's/[[:space:]]*at line.*$//' | xargs)
-            include_json=true  # Flag to include JSON for invalid errors
+            [[ "$line_num" -ne 1 ]] && include_json=true
         elif [[ "$line" == *"missing"* ]]; then
             error_type="missing field"
             key=$(grep -oP 'missing \K[^ ]+(?: [^ ]+)' <<<"$line")
             expected=$(grep -oP 'missing \K.*?(?= at |,|$)' <<<"$line")
+        elif [[ "$line" == *"input is out"* ]]; then
+            error_type="wrong date"
+            actual_type="date string format"
+            expected="date string correct format"
+            [[ "$line_num" -ne 1 ]] && include_json=true
+        elif [[ "$line_num" -eq 1 ]]; then
+            error_type="encoding issues"
+            actual_type="unknown"
+            expected="UTF-8"
         else
             error_type="unknown_error"
             key=""
@@ -68,32 +75,27 @@ while IFS= read -r line; do
         error_type="$processing_error"
     fi
 
-    # Process JSON file only for invalid errors
-    if [[ "$include_json" == true && -n "$rel_file" && -n "$line_num" ]]; then
+    # Process JSON file for errors that need it (except line 1)
+    if [[ "$include_json" == true && -n "$rel_file" && -n "$line_num" && "$line_num" -ne 1 ]]; then
         file="${BASE_DIR_ENV}${rel_file}"
         
         if [[ -f "$file" ]]; then
-            # Validate line number
             if [[ "$line_num" =~ ^[0-9]+$ ]]; then
-                total_lines=$(awk 'END {print NR}' "$file")
-                if (( line_num <= total_lines && line_num >= 1 )); then
-                    json_line=$(awk -v num="$line_num" 'NR == num {
-                        gsub(/^[ \t]+|[ \t]+$/, "");
-                        print;
-                        exit
-                    }' "$file")
-                    
-                    # Extract key from JSON line for invalid errors
-                    if [[ "$error_type" == "invalid"* && -n "$json_line" ]]; then
-                        key=$(awk -F'"' '{print $2}' <<<"$json_line")
-                    fi
+                # Get the specific line and clean it
+                json_line=$(sed -n "${line_num}p" "$file" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                
+                # Only include if it's a valid JSON line (contains :)
+                if [[ "$json_line" == *:* ]]; then
+                    # Extract key from JSON line
+                    key=$(awk -F'"' '{print $2}' <<<"$json_line")
+                else
+                    json_line=""
                 fi
             fi
         fi
     fi
 
-    # Build CSV output in required order:
-    # tercero, periodo, modelo, factura, nit, linea, json, error, key, esperado, actual
+    # Build CSV output
     fields=(
         "$tech_provider"   # tercero
         "$period"          # periodo
@@ -113,15 +115,10 @@ while IFS= read -r line; do
     for field in "${fields[@]}"; do
         escaped_fields+=("$(csv_escape "$field")")
     done
-    # Use printf instead of echo and add error handling
-    if ! (IFS=,; printf "%s\n" "${escaped_fields[*]}"); then
-        echo "ERROR: Failed to write output at line $line_num" >&2
-        exit 1
-    fi
+    (IFS=,; printf "%s\n" "${escaped_fields[*]}")
     unset IFS
 
     # Reset variables for next iteration
     json_line=""
     actual_type=""
 done
-

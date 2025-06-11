@@ -4,7 +4,6 @@ make_dataset:
 	touch json_errors_temp.csv
 	cat /mnt/c/Users/EverOrlandoReyesRuiz/Developer/rips-processor/assets/logs/errors.log | \
 	grep $(LOG_DATE_VAR) | \
-	grep -v "UTF-8" | grep -v "unicode code" | grep -v "invalid type: null" | \
 	sed 's/\\/\//g' | \
 	tr -d '\000' | \
 	bash extract_keys.sh > json_errors_temp.csv && mv json_errors_temp.csv json_errors.csv
