@@ -88,10 +88,10 @@ while IFS= read -r line; do
       expected="$key"
 
     elif [[ v"$line" == *"input is out"* || "$line" == *"invalid date"* || "$line" == *"input contains"* ||
-	   "$line" == *"trailing input"* ]]; then
+	   "$line" == *"trailing input"* || "$line" == *"premature end of input"* ]]; then
       error_type="wrong date"
       key=""
-      actual_type="invalid date format"
+      actual_type="invalid date format or null"
       expected="valid date format (e.g., YYYY-MM-DD HH:MM) or (e.g. YYYY-MM-DD for fechaNacimiento)"
       # Flag that we need to fetch the JSON line content, unless it's the first line
       [[ "$line_num" -ne 1 ]] && include_json=true
@@ -104,9 +104,9 @@ while IFS= read -r line; do
       # Entire file is the issue, so we don't fetch a specific JSON line
       json_line="File contains encoding errors; cannot parse."
 
-    elif [[ "$line" == *"duplicate"* ]]; then
+    elif [[ "$line" == *"duplicate"* || "$line" == *"invalid length"* ]]; then
       error_type="bad structure"
-      actual_type="duplicate key"
+      actual_type="duplicate key or missing array"
       expected="unique keys or right structure"
 
     else
