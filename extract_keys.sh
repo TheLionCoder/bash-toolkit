@@ -43,8 +43,8 @@ while IFS= read -r line; do
   include_json=false
 
   # Extract relative file path from the log line using sed for portability (macOS/WSL)
-  # Original was: grep -oP "data/raw/[^']+"
-  rel_file=$(sed -n "s/.*'\(data\/raw\/[^']\+\)'.*/\1/p" <<<"$line")
+  # Updated to handle full absolute paths and extract the relative portion
+  rel_file=$(sed -n "s/.*'\/.*\/\(data\/raw\/[^']\+\)'.*/\1/p" <<<"$line")
 
   if [[ -z "$rel_file" ]]; then
     processing_error="FILE_PATH_EXTRACTION_FAILED"
