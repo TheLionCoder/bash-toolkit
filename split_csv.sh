@@ -46,24 +46,23 @@ echo "Starting to split '$INPUT_FILE' into chunks of max ${MAX_SIZE_MB}MB..."
 # Use awk to process the file line-by-line
 # This is memory efficient as it doesnot load the whole file at once.
 awk -v max_size="$MAX_SIZE_BYTES" \
-  -v outpur_dir="$OUTPUT_DIR" \
+  -v output_dir="$OUTPUT_DIR" \
   -v filename_base="$FILENAME" '
-
 BEGIN {
   file_count = 1;
   current_size = 0;
-
-  getline header < FILENAME;
-
-  output_file = sprintf("%s%s_part_%d.csv", output_dir, filename_base, file_count);
-
-  # Print the header in the new file
-  print header > output_file;
-
-  # Include the header in the size, +1 for the newline character
-  current_size = length(header) + 1;
+  header_saved = 0;
 }
 {
+  if (!header_saved) {
+    header = $0;
+    header_saved = 1;
+    output_file = sprintf("%s/%s_part_%d.csv", output_dir, filename_base, file_count);
+    print header > output_file;
+    current_size = length(header) + 1;
+    next;
+  }
+  
   line_size = length($0) + 1;
 
   # Check if adding a new line would exceed the max size
@@ -72,7 +71,7 @@ BEGIN {
     close(output_file)
 
     file_count++;
-    output_file = sprint("%s%s_part_%d.csv", outpur_dir, filename_base, file_count);
+    output_file = sprintf("%s/%s_part_%d.csv", output_dir, filename_base, file_count);
 
     print header > output_file;
 
@@ -89,6 +88,6 @@ END {
   if (output_file) {
     close(output_file);
   }
-  print("\sSplitting complete! %d chunks created in '\''%s'\''", file_countm outpur_dir);
+  printf("Splitting complete! %d chunks created in '%s'\n", file_count, output_dir);
 }
 ' "$INPUT_FILE"
