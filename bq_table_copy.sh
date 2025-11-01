@@ -303,7 +303,7 @@ main() {
   # Run parallel without halt flag to let all jobs attempt to complete
   # Pipe the array of tables, one per line, into parallel
   printf '%s\n' "${tables_to_copy[@]}" |
-    parallel \
+    command parallel \
       --jobs "$max_parallel" \
       --bar \
       --joblog "${LOG_DIR_TMP}/parallel_job_log.txt" \
