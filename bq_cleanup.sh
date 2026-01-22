@@ -25,9 +25,9 @@ fi
 for table in $TABLES; do
   FULL_PATH="$PROJECT:$DATASET.$table"
 
-  if bq show $$FULL_PATH >/dev/null 2>&1; then
+  if bq show "$FULL_PATH" >/dev/null 2>&1; then
     if [ "$DRY_RUN" = "true" ]; then
-      echo "[ DRY_RUN ] wold delete $FULL_PATH"
+      echo "[ DRY_RUN ] would delete $FULL_PATH"
     else
       echo "Deleting $FULL_PATH..."
       bq rm -f "$FULL_PATH"
