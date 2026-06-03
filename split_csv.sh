@@ -1,21 +1,24 @@
 #!/bin/bash
-
 #===================================================================
 #    FILE: split_csv.sh
 #
-#    USAGE: ./split_csv.sh <output_directory> <max_size_in_mb> /path/to/file1.csv [/path/to/file2.csv ...]
+#    USAGE: ./split_csv.sh <output_directory> <max_size_in_mb> <input_path1> [<input_path2> ...]
 #
-#    DESCRIPTION: Split a large csv into smaller chunks of specified
-#    max size in MB. It ensures the header row from the origina
-#    file is included in every chunk.
+#    DESCRIPTION: Splits large CSV files into smaller chunks of a
+#    specified maximum size (in Megabytes). It guarantees that the
+#    header row from the original file is preserved at the top of 
+#    every generated chunk. It handles both individual files and
+#    directories (by processing all .csv files within them).
 #
-#    OPTIONS: --
-#    REQUIREMENTS: awk
-#    BUGS: --
-#    NOTES --
+#    ARGUMENTS:
+#      <output_directory>   Directory where split chunks will be created.
+#      <max_size_in_mb>     Maximum file size per chunk in Megabytes (e.g. 50).
+#      <input_path>         One or more CSV file paths or directory paths.
+#
+#    REQUIREMENTS: awk, standard bash tools
 #    AUTHOR: TheLionCoder
-#    CREATED: 2025-07-25 11:07:00
-#    REVISION: 0.3
+#    CREATED: 2025-07-25
+#    REVISION: 1.0
 #===================================================================
 
 set -e

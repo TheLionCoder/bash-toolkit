@@ -1,7 +1,24 @@
 #!/bin/bash
-
-# A script to parse log errors, extract metadata, and format it as CSV.
-# This version is compatible with both GNU/Linux (WSL) and macOS environments.
+#===================================================================
+#    FILE: extract_keys.sh
+#
+#    USAGE: cat logfile.log | ./extract_keys.sh > output.csv
+#
+#    DESCRIPTION: Parses JSON validation log errors from standard input,
+#    extracts metadata (e.g. tech provider, period, bill, NIT, line number),
+#    identifies error category, maps the error details back to the actual 
+#    JSON file line using BASE_DIR_ENV, and formats/escapes the fields 
+#    into a valid RFC 4180 CSV output.
+#
+#    ENVIRONMENT VARIABLES:
+#      BASE_DIR_ENV   Base path to locate raw data files referenced in logs.
+#                     (e.g. /home/user/workspace/)
+#
+#    REQUIREMENTS: awk, sed, standard bash tools
+#    AUTHOR: TheLionCoder
+#    CREATED: 2026-06-03
+#    REVISION: 1.0
+#===================================================================
 
 # Validate BASE_DIR_ENV is set
 if [[ -z "$BASE_DIR_ENV" ]]; then

@@ -1,9 +1,26 @@
+# Makefile for Bash Toolkit Log Processing Tasks
+#
+# Targets:
+#   make_dataset: 
+#     Extracts, sanitizes, and parses validation log errors for a specific date,
+#     mapping them to JSON values using `extract_keys.sh` and outputting `json_errors.csv`.
+#
+# Required Environment Variables:
+#   LOG_DATE_VAR: The date pattern to filter logs (e.g. "2026-06-03" or "2026-06").
+#   BASE_DIR_ENV:  Used by extract_keys.sh to locate target JSON files.
+#
+# Usage:
+#   LOG_DATE_VAR="2026-06-03" BASE_DIR_ENV="/path/to/data" make make_dataset
+
 .PHONY: make_dataset
 make_dataset:
 	# Clear any potential lock on output file first
 	touch json_errors_temp.csv
+	# Cat the target log file, filter by date, normalize directory separators,
+	# clean null bytes, run parser, and swap target outputs atomically
 	cat /mnt/c/Users/EverOrlandoReyesRuiz/Developer/rips-processor/assets/logs/errors.log | \
 	grep "$(LOG_DATE_VAR)" | \
 	sed 's/\\/\//g' | \
 	tr -d '\000' | \
 	bash extract_keys.sh > json_errors_temp.csv && mv json_errors_temp.csv json_errors.csv
+
